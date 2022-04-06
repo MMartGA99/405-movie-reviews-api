@@ -1,9 +1,17 @@
+#This works
+
 import dash
 from dash import dcc, html
+#import dash_core_components as dcc
+#import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from helpers.key_finder import api_key
 from helpers.api_call import *
+
+#you can put these imports along with the below "sentiment_scores" function in a separate .py file and them import it
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import numpy as np
 
 
 ########### Define a few variables ######
@@ -11,7 +19,7 @@ from helpers.api_call import *
 tabtitle = 'Movies'
 sourceurl = 'https://www.kaggle.com/tmdb/tmdb-movie-metadata'
 sourceurl2 = 'https://developers.themoviedb.org/3/getting-started/introduction'
-githublink = 'https://github.com/austinlasseter/tmdb-rf-classifier'
+githublink = 'https://github.com/MMartGA99/405-movie-reviews-api'
 
 
 
@@ -20,6 +28,28 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
 app.title=tabtitle
+
+####### Write your primary function here - vader sentiment
+def sentiment_scores(sentence):
+    sent_keys = ["Negative", "Neutral", "Positive"]
+    # Create a SentimentIntensityAnalyzer object.
+    sid_obj = SentimentIntensityAnalyzer()
+
+    # polarity_scores method of SentimentIntensityAnalyzer
+    # object gives a sentiment dictionary.
+    sentiment_dict = sid_obj.polarity_scores(sentence)
+    sent_values = [x for x in sentiment_dict.values()]
+    sent_values=sent_values[:3]
+    # find the index of the max value
+
+    index_max = np.argmax(sent_values)
+
+    # decide sentiment as positive, negative and neutral
+    final = sent_keys[index_max]
+    # responses
+    response1=f"Overall sentiment is {final} with scores: {sentiment_dict}"
+    return response1
+
 
 ########### Layout
 
@@ -35,6 +65,7 @@ app.layout = html.Div(children=[
                 html.Div(id='movie-title', children=[]),
                 html.Div(id='movie-release', children=[]),
                 html.Div(id='movie-overview', children=[]),
+                
 
             ], style={ 'padding': '12px',
                     'font-size': '22px',
@@ -50,6 +81,8 @@ app.layout = html.Div(children=[
         html.Br(),
 
     ], className='twelve columns'),
+    html.Br(),
+    html.Div(id='output-div-1'), 
 
 
         # Output
@@ -86,6 +119,7 @@ def on_click(n_clicks, data):
 @app.callback([Output('movie-title', 'children'),
                 Output('movie-release', 'children'),
                 Output('movie-overview', 'children'),
+               Output(component_id='output-div-1', component_property='children')
                 ],
               [Input('tmdb-store', 'modified_timestamp')],
               [State('tmdb-store', 'data')])
@@ -93,9 +127,12 @@ def on_data(ts, data):
     if ts is None:
         raise PreventUpdate
     else:
-        return data['title'], data['release_date'], data['overview']
+        sentence = data['overview']
+        message = sentiment_scores(sentence)
+        return data['title'], data['release_date'], data['overview'], message
 
 
 ############ Deploy
 if __name__ == '__main__':
     app.run_server(debug=True)
+
